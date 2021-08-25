@@ -33,28 +33,110 @@ set -eou pipefail
 # Constants
 ########################################################################################################################
 
-if [[ -z "${1}" ]]; then
-  echo "ERROR: Provide path to Lutris Battle.net installation folder as $arg1"
-  exit 1
-fi
+# Get the path of this script's own directory
+MY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-BNET_HOME="${1}"
-C_DRIVE="/drive_c/Program Files (x86)"
-PROGRAM_FILES_PATH="${BNET_HOME}/${C_DRIVE}"
-WOW_HOME="${PROGRAM_FILES_PATH}/World of Warcraft"
-CLASSIC_WOW="${WOW_HOME}/_classic_"
-RETAIL_WOW="${WOW_HOME}/_retail_"
-CURSEBREAKER_EXECUTABLE="CurseBreaker"
+# The path to the common libraries
+LIB_DIR="${MY_DIR}/../../common/lib"
 
-MANDATORY_FOLDERS=(
-  "${BNET_HOME}"
-  "${WOW_HOME}"
-)
+# The classic World of Warcraft subfolder.
+CLASSIC_SUBFOLDER="_classic_"
 
-WOW_FOLDERS=(
-  "${CLASSIC_WOW}"
-  "${RETAIL_WOW}"
-)
+# The arguments we will be passing to the CurseBreaker executable
+CURSEBREAKER_ARGS="headless"
+
+# The name of the CurseBreaker executable.
+CURSEBREAKER_EXECUTABLE_NAME="CurseBreaker"
+
+# The relative path of the drive_c wine folder within the Lutris installation.
+PROGRAM_FILES_FOLDER="drive_c/Program Files (x86)"
+
+# The retail World of Warcraft subfolder.
+RETAIL_SUBFOLDER="_retail_"
+
+# The World of Warcraft folder.
+WOW_FOLDER="World of Warcraft"
+
+# The path of the Lutris install for Battle.net
+# This will be set later
+BATTLE_NET_PATH=""
+
+# The path of the Program Files wine directory.
+# This will be set later.
+PROGRAM_FILES_PATH=""
+
+# The path of the World of Warcraft installation.
+# This will be set later.
+WOW_PATH=""
+
+# The path to the Classic World of Warcraft subfolder.
+# This will be set later
+CLASSIC_PATH=""
+
+# The path to the Retail World of Warcraft subfolder.
+# This will be set later
+RETAIL_PATH=""
+
+########################################################################################################################
+### Functions
+########################################################################################################################
+
+########################################################################################################################
+# function LoadCommonResources()
+#
+# Description:
+#   Load the resource files from the common library directory
+# Inputs:
+#   $LIB_DIR - The folder containing the common libraries
+# Returns:
+#   0 - If the file exists and was loaded successfully.
+#   1 - If the file does not exist or could not be loaded.
+########################################################################################################################
+function LoadCommonResources() {
+
+  # Check if the file exists
+  if [[ ! -d "${LIB_DIR}" ]]; then
+    # If the file doesn't exist then this is a serious problem
+    PrintError "The library directory '${LIB_DIR}' could not be found."
+    return 1
+  fi
+
+  # Source the resource file containing the configuration
+  # shellcheck disable=SC1090
+  local fileList
+  fileList="$(ls "${LIB_DIR}")"
+
+  # This will be returned later
+  local returnCode
+  returnCode="0"
+
+  local currentFile
+  local currentPath
+  # Loop over all the files in the directory
+  for currentFile in ${fileList}; do
+    # Construct the absolute path to the file
+    currentPath="${LIB_DIR}/${currentFile}"
+
+    # Check if the file even exists
+    if [[ -f ${currentPath} ]]; then
+
+      # If the file exists try to load it
+      # shellcheck disable=SC1090
+      if ! source "${currentPath}"; then
+        # The file could not be loaded
+        PrintError "The library file '${currentPath}' could not be loaded."
+        returnCode="1"
+      fi
+    else
+      # The file could not be found
+      PrintError "The library file '${currentPath}' could not be found."
+      returnCode="1"
+    fi
+  done
+
+  return "${returnCode}"
+
+}
 
 ########################################################################################################################
 ### Functions
@@ -63,93 +145,104 @@ WOW_FOLDERS=(
 ########################################################################################################################
 # TODO: Add header
 ########################################################################################################################
-function ValidateFolders() {
+function ValidateInputs() {
 
-  # All the folders in this list must be present to continue.
-  for FOLDER in "${MANDATORY_FOLDERS[@]}"; do
-
-    # Tell the user what we're about to test
-    echo "INFO: Checking if directory '${FOLDER}' exists..."
-
-    # Check if the folder is present
-    if [[ ! -d "${FOLDER}" ]]; then
-
-      # If its not present then spit out the error and return 1
-      echo "ERROR: Directory '${FOLDER}' not found."
-      return 1
-    fi
-  done
-
-  # If we got here then we know all the mandatory folders were present.
-  echo "INFO: All mandatory folders present!"
-
-  # This local variable will be used to store the state that at least one World of Warcraft folder is detected.
-  local atLeastOneWowVersionInstalled
-  atLeastOneWowVersionInstalled="false"
-
-  # At least one of the folders in this list must be present.
-  for FOLDER in "${WOW_FOLDERS[@]}"; do
-
-    # Tell the user what we're about to test
-    echo "INFO: Checking if directory '${FOLDER}' exists..."
-
-    # Check if the folder is present
-    if [[ ! -d "${FOLDER}" ]]; then
-
-      # Print a warning if its not present.
-      echo "WARN: Directory '${FOLDER}' not found."
-    else
-      # Save the fact that the folder exists
-      atLeastOneWowVersionInstalled="true"
-    fi
-  done
-
-  # If no World of Warcraft folder is detected then we will print and error and return 1.
-  if ! "${atLeastOneWowVersionInstalled}"; then
-    echo "ERROR: No World of Warcraft folders detected."
+  # If no arguments were provided then `set -e` will cause `${1}` to throw an error
+  if [[ $# -eq 0 ]]; then
+    PrintError "No arguments specified. Must specify the Lutris Battle.net install folder."
     return 1
   fi
 
-  # If we got here then we have passed all validation so let the user know we're ready.
-  echo "INFO: All validation checks passed!"
+  # If ${1} was provided then we expect it to be a directory
+  if [[ ! -d "${1}" ]]; then
+    PrintError "Provided path '${1}' was not a directory, or is not accessible."
+    return 1
+  fi
+
+  BATTLE_NET_PATH="${1}"
+  PROGRAM_FILES_PATH="${BATTLE_NET_PATH}/${PROGRAM_FILES_FOLDER}"
+  WOW_PATH="${PROGRAM_FILES_PATH}/${WOW_FOLDER}"
+  CLASSIC_PATH="${WOW_PATH}/${CLASSIC_SUBFOLDER}"
+  RETAIL_PATH="${WOW_PATH}/${RETAIL_SUBFOLDER}"
   return 0
+
 }
 
 ########################################################################################################################
 # TODO: Add header
 ########################################################################################################################
-function UpdateAddons() {
-  for FOLDER in "${WOW_FOLDERS[@]}"; do
+function ValidateDependenciesAndUpdateAddons() {
 
-    # We know at least one of the World of Warcraft folders is present, but we aren't 100% sure this folder is present.
-    # We will log a warning and continue to the next folder.
-    if [[ ! -d "${FOLDER}" ]]; then
-      echo "WARN: Folder '${FOLDER}' not present."
-      continue
-    fi
+  # A local variable will be used to loop over the mandatory folders.
+  local mandatoryFolders
+  mandatoryFolders=(
+    "${BATTLE_NET_PATH}"
+    "${PROGRAM_FILES_PATH}"
+    "${WOW_PATH}"
+  )
 
-    CURSEBREAKER_PATH="${FOLDER}/${CURSEBREAKER_EXECUTABLE}"
-    CURSEBREAKER_ARGS="update"
+  # A local variable will be used to store the for loop variable.
+  local currentFolder
 
-    # The CurseBreaker executable must be both present and executable.
-    if [[ ! -x "${CURSEBREAKER_PATH}" ]]; then
-      echo "ERROR: File '${CURSEBREAKER_PATH}' is either not present or is not executable."
+  # All the folders in this list must be present to continue.
+  for currentFolder in "${mandatoryFolders[@]}"; do
+
+    # Tell the user what we're about to test
+    PrintInfo "Checking if directory '${currentFolder}' exists..."
+
+    # Check if the folder is present
+    if [[ ! -d "${currentFolder}" ]]; then
+
+      # If its not present then spit out the error and return 1
+      PrintError "Directory '${currentFolder}' not found."
       return 1
     fi
-
-    # Tell the user that we're about to update the addons.
-    echo "INFO: Updating addons with '${CURSEBREAKER_PATH}'..."
-
-    # If we fail to update the addons then we will return 1
-    if ! "${CURSEBREAKER_PATH}" "${CURSEBREAKER_ARGS}"; then
-      echo "ERROR: Failed to update addons using path '${CURSEBREAKER_PATH}'."
-      return 1
-    fi
-
   done
 
-  # Let the user know that we updated the addons in all the detected World of Warcraft folders.
-  echo "INFO: Updated all addons!"
+  # If we got here then we know all the mandatory folders were present.
+  PrintInfo "All mandatory folders present!"
+
+  # A local variable will be used to loop over the World of Warcraft subfolders.
+  local wowSubfolders
+  wowSubfolders=(
+    "${CLASSIC_PATH}"
+    "${RETAIL_PATH}"
+  )
+
+  # A local variable used to save the current CurseBreaker path
+  local curseBreakerPath
+
+  # At least one of the folders in this list must be present.
+  for currentFolder in "${wowSubfolders[@]}"; do
+
+    curseBreakerPath="${currentFolder}/${CURSEBREAKER_EXECUTABLE_NAME}"
+
+    # Tell the user what we're about to test
+    PrintInfo "Checking if directory '${currentFolder}' exists..."
+
+    # Check if the folder is present
+    if [[ ! -d "${currentFolder}" ]]; then
+
+      # Print a warning if its not present.
+      PrintWarning "Directory '${currentFolder}' not found."
+
+    # If the folder exists then we also want to check if CurseBreaker exists within the folder.
+    elif [[ -x "${curseBreakerPath}" ]]; then
+
+      # Tell the user that we're about to update the addons.
+      PrintInfo "Updating addons in folder '${currentFolder}'."
+
+      # If we fail to update the addons then we will return 1
+      if ! "${curseBreakerPath}" "${CURSEBREAKER_ARGS}"; then
+        PrintError "Failed to update addons using path '${CURSEBREAKER_PATH}'."
+        return 1
+      fi
+
+      PrintInfo "Successfully updated addons in folder '${currentFolder}'."
+
+    fi
+  done
+
   return 0
 }
 
@@ -157,13 +250,15 @@ function UpdateAddons() {
 # TODO: Add header
 ########################################################################################################################
 function Main() {
-  ValidateFolders || exit 1
-  UpdateAddons || exit 1
+  LoadCommonResources || ReportErrorAndExit
+  ValidateInputs "${@}" || ReportErrorAndExit
+  ValidateDependenciesAndUpdateAddons || ReportErrorAndExit
+  exit 0
 }
 
 ########################################################################################################################
 ### Main
 ########################################################################################################################
 
-Main
-exit 0
+# Call the main function
+Main "${@}"
