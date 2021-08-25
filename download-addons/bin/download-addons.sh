@@ -139,11 +139,15 @@ function LoadCommonResources() {
 }
 
 ########################################################################################################################
-### Functions
-########################################################################################################################
-
-########################################################################################################################
-# TODO: Add header
+# function ValidateInputs()
+#
+# Description:
+#   Validate that the required input parameter has been set and configure all the necessary path variables.
+# Inputs:
+#   ${@} - All the arguments passed to the script.
+# Returns:
+#   0 - If the provided path exists and is a directory.
+#   1 - If the provided path does not exist, or is not a diroectory, or is inaccessible due to permissions.
 ########################################################################################################################
 function ValidateInputs() {
 
@@ -169,7 +173,22 @@ function ValidateInputs() {
 }
 
 ########################################################################################################################
-# TODO: Add header
+# function ValidateDependenciesAndUpdateAddons()
+#
+# Description:
+#   Validate that all the necessary folders are present, that CurseBreaker is present, and then update all the
+#   installed addons.
+# Inputs:
+#   ${BATTLE_NET_PATH} - The absolute path to the Lutris Battle.net installation.
+#   ${CLASSIC_PATH} - The absolute path to the Classic World of Warcraft subfolder.
+#   ${CURSEBREAKER_ARGS} - The arguments to be passed to the CurseBreaker process.
+#   ${CURSEBREAKER_EXECUTABLE_NAME} - The name of the CurseBreaker executable.
+#   ${PROGRAM_FILES_PATH} - The absolute path to the Program Files directory within the Wine drive.
+#   ${RETAIL_PATH} - The absolute path to the Retail World of Warcraft subfolder.
+#   ${WOW_PATH} - The absolute path to the main World of Warcraft folder.
+# Returns:
+#   0 - If all the necessary configuration is set.
+#   1 - If one or more of the necessary variables is missing.
 ########################################################################################################################
 function ValidateDependenciesAndUpdateAddons() {
 
@@ -234,7 +253,7 @@ function ValidateDependenciesAndUpdateAddons() {
 
       # If we fail to update the addons then we will return 1
       if ! "${curseBreakerPath}" "${CURSEBREAKER_ARGS}"; then
-        PrintError "Failed to update addons using path '${CURSEBREAKER_PATH}'."
+        PrintError "Failed to update addons using path '${curseBreakerPath}'."
         return 1
       fi
 
@@ -247,7 +266,12 @@ function ValidateDependenciesAndUpdateAddons() {
 }
 
 ########################################################################################################################
-# TODO: Add header
+# function Main()
+#
+# Description:
+#  Call the above functions in the appropriate order to accomplish the goal of updating all the installed addons.
+#  This includes loading common resources, validating the input parameters, validating the directory structure, and
+#  actually performing the addon update.
 ########################################################################################################################
 function Main() {
   LoadCommonResources || ReportErrorAndExit
