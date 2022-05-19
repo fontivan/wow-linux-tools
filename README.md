@@ -1,2 +1,2 @@
 # wow-linux-tools
-Update the addons for a Lutris installed World of Warcraft
+Due to changes in the Cursebreaker API this is no longer usable and thus has been archived.
